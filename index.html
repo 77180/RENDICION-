@@ -391,6 +391,660 @@
   <div class="step active" id="step-0">
     <p class="section-label">Paso 1 — Empresa</p>
     <div class="empresa-grid">
+      <div class="empresa-btn" id="ebtn-ALFA" onclick="selectEmpresa('ALFA','',this)">
+        <div class="ename">Alfa</div>
+        <div class="erut">Alfa & Omega</div>
+      </div>
+      <div class="empresa-btn" id="ebtn-BETA" onclick="selectEmpresa('BETA','77.385.968-k',this)">
+        <div class="ename">Beta</div>
+        <div class="erut">Transporte Beta y Gamma Spa</div>
+      </div>
+      <div class="empresa-btn" id="ebtn-EPSILON" onclick="selectEmpresa('EPSILON','77.843.232-3',this)">
+        <div class="ename">Epsilon</div>
+        <div class="erut">Epsilon SpA</div>
+      </div>
+    </div>
+
+    <p class="section-label">Paso 2 — Datos del colaborador</p>
+    <div class="card">
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="field"><label>Nombre completo</label><input type="text" id="nombre" placeholder="Ej: Ali Chirinos"></div>
+        <div class="field"><label>RUT colaborador</label><input type="text" id="rut-col" placeholder="12.345.678-9"></div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px;">
+        <div class="field"><label>Banco</label><input type="text" id="banco" placeholder="Banco Estado"></div>
+        <div class="field">
+          <label>Tipo de cuenta</label>
+          <select id="tipo-cuenta">
+            <option value="">Seleccionar...</option>
+            <option>Cuenta corriente</option>
+            <option>Cuenta vista</option>
+            <option>Cuenta RUT</option>
+            <option>Cuenta de ahorro</option>
+          </select>
+        </div>
+        <div class="field"><label>N° cuenta</label><input type="text" id="ncuenta" placeholder="0001234567"></div>
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>E-mail</label><input type="email" id="email" placeholder="nombre@empresa.cl"></div>
+        <div class="field"><label>Fecha de rendición</label><input type="date" id="fecha-rendicion"></div>
+      </div>
+    </div>
+
+    <div id="err-0" class="error-banner">Selecciona una empresa e ingresa el nombre del colaborador.</div>
+
+    <div class="step-nav">
+      <div></div>
+      <button class="primary" onclick="goStep1()">Continuar <i class="ti ti-arrow-right"></i></button>
+    </div>
+  </div>
+
+  <!-- STEP 1: boletas -->
+  <div class="step" id="step-1">
+    <p class="section-label">Paso 3 — Boletas y gastos</p>
+
+    <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+      <i class="ti ti-cloud-upload"></i>
+      <p class="uz-title">Haz clic para subir boletas</p>
+      <p class="uz-sub">JPG, PNG o PDF · La IA extrae fecha, motivo y monto automáticamente</p>
+    </div>
+    <input type="file" id="file-input" multiple accept="image/*,application/pdf" style="display:none" onchange="handleFiles(this.files)">
+
+    <div class="boletas-list" id="boletas-list"></div>
+
+    <div class="total-box" id="total-box" style="display:none">
+      <span class="total-label">Total a rendir</span>
+      <span class="total-amount" id="total-display">$0</span>
+    </div>
+
+    <div id="err-1" class="error-banner">Agrega al menos una boleta para continuar.</div>
+
+    <div class="step-nav">
+      <button onclick="goStep(0)"><i class="ti ti-arrow-left"></i> Volver</button>
+      <button class="primary" onclick="goStep2()">Generar rendición <i class="ti ti-arrow-right"></i></button>
+    </div>
+  </div>
+
+  <!-- STEP 2: generando -->
+  <div class="step" id="step-2">
+    <div class="generating-card">
+      <div class="gen-spinner"></div>
+      <p style="font-size:15px;font-weight:500;color:var(--text);margin-bottom:6px;">Generando tu rendición...</p>
+      <p style="font-size:13px;color:var(--text2);" id="gen-status">Procesando boletas y armando el Excel</p>
+    </div>
+  </div>
+
+  <!-- STEP 3: éxito -->
+  <div class="step" id="step-3">
+    <div class="success-card">
+      <div class="success-icon-wrap"><i class="ti ti-check"></i></div>
+      <h2 class="success-title">¡Rendición lista!</h2>
+      <p class="success-sub" id="success-sub">El archivo fue generado con el formato de Alfa & Omega.</p>
+      <div class="btn-row">
+        <button class="primary" id="btn-download"><i class="ti ti-download"></i> Descargar Excel</button>
+        <button onclick="resetAll()"><i class="ti ti-plus"></i> Nueva rendición</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+let empresa = null;
+let boletas = [];
+let xlsxBlob = null;
+let idCounter = 0;
+
+function selectEmpresa(nombre, rut, el) {
+  empresa = { nombre, rut };
+  document.querySelectorAll('.empresa-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function goStep(n) {
+  document.querySelectorAll('.step').forEach((s, i) => s.classList.toggle('active', i === n));
+  ['ns0','ns1','ns2','ns3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'nav-step' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showErr(id) {
+  const el = document.getElementById(id);
+  if (el) { el.style.display = 'block'; setTimeout(() => el.style.display = 'none', 3500); }
+}
+
+function goStep1() {
+  if (!empresa || !document.getElementById('nombre').value.trim()) { showErr('err-0'); return; }
+  goStep(1);
+}
+
+function goStep2() {
+  if (boletas.length === 0) { showErr('err-1'); return; }
+  const pending = boletas.some(b => b.status === 'loading');
+  if (pending) { alert('Espera a que terminen de procesar todas las boletas.'); return; }
+  goStep(2);
+  setTimeout(generateExcel, 900);
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(f => {
+    const id = ++idCounter;
+    const item = { id, file: f, status: 'loading', fecha: '', motivo: '', proyecto: '', monto: '' };
+    boletas.push(item);
+    renderBoletas();
+    extractBoletaData(item);
+  });
+  document.getElementById('file-input').value = '';
+}
+
+async function extractBoletaData(item) {
+  try {
+    const b64 = await toBase64(item.file);
+    const isImage = item.file.type.startsWith('image/');
+    const prompt = 'Extrae de esta boleta/recibo: fecha (DD-MM-YYYY), motivo o descripción breve del gasto, y monto total en pesos chilenos (solo número entero sin símbolo ni puntos). Responde SOLO en JSON con claves: fecha, motivo, proyecto (vacío si no aplica), monto (número entero). Sin texto adicional, sin backticks, sin markdown.';
+    const content = isImage
+      ? [{ type: 'image', source: { type: 'base64', media_type: item.file.type, data: b64 } }, { type: 'text', text: prompt }]
+      : [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: prompt }];
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 400, messages: [{ role: 'user', content }] })
+    });
+    const data = await resp.json();
+    const text = (data.content || []).map(c => c.text || '').join('');
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    item.fecha = parsed.fecha || '';
+    item.motivo = parsed.motivo || '';
+    item.proyecto = parsed.proyecto || '';
+    item.monto = parsed.monto || '';
+    item.status = 'ok';
+  } catch (e) {
+    item.status = 'error';
+  }
+  renderBoletas();
+  updateTotal();
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function renderBoletas() {
+  const container = document.getElementById('boletas-list');
+  const totalBox = document.getElementById('total-box');
+  if (!boletas.length) { container.innerHTML = ''; totalBox.style.display = 'none'; return; }
+  totalBox.style.display = 'flex';
+  container.innerHTML = boletas.map((b, idx) => `
+    <div class="boleta-item ${b.status}">
+      <div class="boleta-header">
+        <div class="boleta-icon"><i class="ti ti-receipt"></i></div>
+        <div style="flex:1;min-width:0;">
+          <p class="boleta-filename">${b.file.name}</p>
+          <p class="boleta-status ${b.status}">
+            ${b.status === 'loading'
+              ? '<span class="spinner"></span> Extrayendo datos con IA...'
+              : b.status === 'ok'
+              ? '<i class="ti ti-check" style="font-size:13px;vertical-align:-1px;margin-right:3px;"></i> Datos extraídos — revisa si es necesario'
+              : '<i class="ti ti-alert-triangle" style="font-size:13px;vertical-align:-1px;margin-right:3px;"></i> No se pudo leer — completa manualmente'}
+          </p>
+        </div>
+        <button class="boleta-del" onclick="removeBoleta(${idx})" title="Eliminar"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="boleta-fields">
+        <div class="field"><label>Fecha</label><input type="text" value="${escHtml(b.fecha)}" placeholder="DD-MM-YYYY" oninput="boletas[${idx}].fecha=this.value"></div>
+        <div class="field"><label>Motivo</label><input type="text" value="${escHtml(b.motivo)}" placeholder="Estacionamiento..." oninput="boletas[${idx}].motivo=this.value"></div>
+        <div class="field"><label>Proyecto</label><input type="text" value="${escHtml(b.proyecto)}" placeholder="Claro Arena..." oninput="boletas[${idx}].proyecto=this.value"></div>
+        <div class="field"><label>Monto ($)</label><input type="number" value="${b.monto}" placeholder="5000" oninput="boletas[${idx}].monto=this.value; updateTotal()"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function removeBoleta(idx) {
+  boletas.splice(idx, 1);
+  renderBoletas();
+  updateTotal();
+}
+
+function updateTotal() {
+  const total = boletas.reduce((s, b) => s + (parseInt(b.monto) || 0), 0);
+  document.getElementById('total-display').textContent = '$' + total.toLocaleString('es-CL');
+}
+
+function generateExcel() {
+  try {
+    const nombreCol = document.getElementById('nombre').value;
+    const rutCol = document.getElementById('rut-col').value;
+    const bancoVal = document.getElementById('banco').value;
+    const tipoCuenta = document.getElementById('tipo-cuenta').value;
+    const ncuenta = document.getElementById('ncuenta').value;
+    const emailVal = document.getElementById('email').value;
+    const fechaRend = document.getElementById('fecha-rendicion').value;
+    const total = boletas.reduce((s, b) => s + (parseInt(b.monto) || 0), 0);
+    const empresaNombre = empresa.nombre;
+    const empresaRut = empresa.rut;
+
+    const aoa = [];
+    const header1 = ['', '', '', '', '', 'Fecha de Rendición'];
+    aoa.push(header1);
+    const header2 = [empresaRut ? `${empresaNombre}   ${empresaRut}` : '', '', '', '', '', fechaRend];
+    aoa.push(header2);
+    aoa.push([]);
+    aoa.push(['', 'REEMBOLSO GASTOS']);
+    aoa.push([]);
+    aoa.push(['REEMBOLSAR A', '', '', nombreCol]);
+    aoa.push([]);
+    aoa.push(['FECHA', 'MOTIVO', '', 'PROYECTO', '', 'MONTO']);
+    boletas.forEach(b => {
+      aoa.push([b.fecha, b.motivo.toUpperCase(), '', b.proyecto.toUpperCase(), '', parseInt(b.monto) || 0]);
+    });
+    aoa.push([]);
+    aoa.push(['', '', '', 'Total a Rendir:', '', total]);
+    aoa.push([]);
+    aoa.push(['Información Transferencia']);
+    aoa.push(['Nombre', '', '', '', 'Firma ']);
+    aoa.push(['Rut', '', rutCol]);
+    aoa.push(['Banco:', '', bancoVal]);
+    aoa.push(['N° cuenta:', '', ncuenta, '', '', 'V°B° Jocelyn Muñoz']);
+    aoa.push(['Tipo Cuenta', '', tipoCuenta]);
+    aoa.push(['e-mail', '', emailVal]);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 6 }, { wch: 20 }, { wch: 6 }, { wch: 14 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'FORMATO ' + empresaNombre);
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    xlsxBlob = new Blob([wbout], { type: 'application/octet-stream' });
+
+    const filename = `Rendicion_${empresaNombre}_${nombreCol.replace(/ /g,'_')}_${fechaRend || new Date().toISOString().slice(0,10)}.xlsx`;
+    const totalFmt = '$' + total.toLocaleString('es-CL');
+
+    document.getElementById('success-sub').innerHTML =
+      `<strong>${boletas.length} boleta${boletas.length !== 1 ? 's' : ''}</strong> · Total: <strong>${totalFmt}</strong><br>Empresa: ${empresaNombre} · Colaborador: ${nombreCol}`;
+
+    document.getElementById('btn-download').onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(xlsxBlob);
+      a.download = filename;
+      a.click();
+    };
+
+    goStep(3);
+  } catch (e) {
+    document.getElementById('gen-status').textContent = 'Error al generar el archivo. Revisa los datos e intenta de nuevo.';
+  }
+}
+
+function resetAll() {
+  boletas = [];
+  empresa = null;
+  xlsxBlob = null;
+  ['nombre','rut-col','banco','ncuenta','email'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('tipo-cuenta').value = '';
+  document.getElementById('fecha-rendicion').value = new Date().toISOString().slice(0,10);
+  document.querySelectorAll('.empresa-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('boletas-list').innerHTML = '';
+  document.getElementById('total-box').style.display = 'none';
+  goStep(0);
+}
+
+document.getElementById('fecha-rendicion').value = new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
+    max-width: 640px;
+  }
+
+  .logo-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: var(--green-light);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .logo-icon i { color: var(--green); font-size: 22px; }
+
+  .logo-text h1 { font-size: 16px; font-weight: 600; color: var(--text); }
+  .logo-text p { font-size: 12px; color: var(--text2); }
+
+  .tag {
+    margin-left: auto;
+    background: var(--green-light);
+    color: var(--green-dark);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  .nav-steps {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+
+  .nav-step {
+    flex: 1; height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .nav-step.done { background: var(--green); }
+  .nav-step.active { background: var(--green-mid); }
+
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 12px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .empresa-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .empresa-btn {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+
+  .empresa-btn:hover { border-color: var(--border2); background: var(--surface2); }
+
+  .empresa-btn.selected {
+    border: 2px solid var(--green);
+    background: var(--green-light);
+  }
+
+  .empresa-btn .ename { font-size: 15px; font-weight: 600; color: var(--text); }
+  .empresa-btn .erut { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.3; }
+  .empresa-btn.selected .ename { color: var(--green-dark); }
+  .empresa-btn.selected .erut { color: var(--green); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+
+  label {
+    font-size: 12px;
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  input, select {
+    background: var(--surface2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: inherit;
+    width: 100%;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  input:focus, select:focus { border-color: var(--green); }
+  input::placeholder { color: var(--text3); }
+
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--surface2);
+  }
+
+  .upload-zone:hover { border-color: var(--green); background: var(--green-light); }
+  .upload-zone i { font-size: 32px; color: var(--text3); margin-bottom: 10px; display: block; }
+  .upload-zone .uz-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .upload-zone .uz-sub { font-size: 12px; color: var(--text2); }
+
+  .boletas-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .boleta-item {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    transition: opacity 0.2s;
+  }
+
+  .boleta-item.loading { opacity: 0.65; }
+
+  .boleta-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+
+  .boleta-icon {
+    width: 36px; height: 36px;
+    background: var(--surface2);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .boleta-icon i { font-size: 18px; color: var(--text2); }
+  .boleta-item.ok .boleta-icon { background: var(--green-light); }
+  .boleta-item.ok .boleta-icon i { color: var(--green); }
+
+  .boleta-filename { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .boleta-status { font-size: 12px; margin-top: 2px; }
+  .boleta-status.loading { color: var(--text3); }
+  .boleta-status.ok { color: var(--green); }
+  .boleta-status.error { color: #E24B4A; }
+
+  .boleta-del {
+    margin-left: auto;
+    background: none; border: none;
+    cursor: pointer; color: var(--text3);
+    font-size: 18px;
+    padding: 4px;
+    display: flex; align-items: center;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .boleta-del:hover { background: var(--surface2); color: #E24B4A; }
+
+  .boleta-fields {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr 1.2fr 1fr;
+    gap: 8px;
+  }
+
+  .boleta-fields label { font-size: 11px; }
+  .boleta-fields input { font-size: 13px; padding: 6px 9px; }
+
+  .total-box {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  .total-label { font-size: 13px; color: var(--text2); }
+  .total-amount { font-size: 22px; font-weight: 600; color: var(--text); }
+
+  .step-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    gap: 10px;
+  }
+
+  button {
+    background: var(--surface);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md);
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+  }
+
+  button:hover { background: var(--surface2); }
+  button:active { transform: scale(0.98); }
+
+  button.primary {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+  }
+
+  button.primary:hover { background: var(--green-dark); border-color: var(--green-dark); }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .generating-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 48px 32px;
+    text-align: center;
+  }
+
+  .gen-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+  }
+
+  .success-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 48px 32px;
+    text-align: center;
+  }
+
+  .success-icon-wrap {
+    width: 60px; height: 60px;
+    background: var(--green-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+  }
+
+  .success-icon-wrap i { font-size: 28px; color: var(--green); }
+
+  .success-title { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .success-sub { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 28px; }
+
+  .btn-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+  .error-banner {
+    background: #FCEBEB;
+    border: 0.5px solid #F09595;
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #A32D2D;
+    margin-top: 10px;
+    display: none;
+  }
+
+  @media (max-width: 500px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .boleta-fields { grid-template-columns: 1fr 1fr; }
+    .empresa-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="logo-bar">
+    <div class="logo-icon"><i class="ti ti-file-invoice"></i></div>
+    <div class="logo-text">
+      <h1>Rendición de gastos</h1>
+      <p>Alfa & Omega · Formato automático</p>
+    </div>
+    <span class="tag">IA</span>
+  </div>
+
+  <div class="nav-steps">
+    <div class="nav-step active" id="ns0"></div>
+    <div class="nav-step" id="ns1"></div>
+    <div class="nav-step" id="ns2"></div>
+    <div class="nav-step" id="ns3"></div>
+  </div>
+
+  <!-- STEP 0: empresa + colaborador -->
+  <div class="step active" id="step-0">
+    <p class="section-label">Paso 1 — Empresa</p>
+    <div class="empresa-grid">
       <div class="empresa-btn" data-nombre="ALFA" data-rut="">
         <div class="ename">Alfa</div>
         <div class="erut">Alfa & Omega</div>
